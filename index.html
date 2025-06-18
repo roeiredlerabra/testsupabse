@@ -95,7 +95,7 @@
                 <div id="carsContainer"></div>
             </div>
         </div>
-
+<button id="debugBtn">Debug JWT</button>
         <div id="errorContainer"></div>
     </div>
 
@@ -246,12 +246,36 @@
                 errorContainer.innerHTML = '';
             }, 5000);
         }
+// Add this function to debug JWT claims
+async function debugJWT() {
+    try {
+        const token = await auth0Client.getTokenSilently();
+        console.log('Auth0 Access Token:', token);
+        
+        // Decode the JWT to see claims (for debugging only)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log('JWT Payload:', payload);
+        
+        // Test Supabase connection
+        const { data, error } = await supabaseClient
+            .from('cars')
+            .select('*')
+            .limit(1);
+            
+        console.log('Supabase Response:', { data, error });
+        
+    } catch (error) {
+        console.error('Debug error:', error);
+    }
+}
 
+// Add a debug button to your HTML
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('loginBtn').addEventListener('click', login);
             document.getElementById('logoutBtn').addEventListener('click', logout);
             document.getElementById('loadCarsBtn').addEventListener('click', loadCars);
+            document.getElementById('debugBtn').addEventListener('click', debugJWT);
             
             // Initialize Auth0
             initAuth0();
