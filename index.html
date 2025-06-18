@@ -260,16 +260,6 @@ async function debugJWT() {
         console.log('Role claim:', payload.role);
         console.log('Email claim:', payload['https://myapp/email']);
         
-        // Test Supabase auth status
-        const { data: authTest, error: authError } = await supabaseClient.auth.getUser();
-        console.log('Supabase auth test:', { authTest, authError });
-        
-        // Test a simple query to see what role Supabase assigns
-        const { data: testData, error: testError } = await supabaseClient
-            .rpc('current_user_id'); // This will show us the current role
-            
-        console.log('Supabase role test:', { testData, testError });
-        
         // Test the cars query with detailed error info
         const { data: cars, error: carsError, status, statusText } = await supabaseClient
             .from('cars')
@@ -283,6 +273,11 @@ async function debugJWT() {
             statusText,
             count: cars?.length 
         });
+        
+        // If there's an error, let's see what role Supabase thinks we have
+        if (carsError) {
+            console.log('Error details:', carsError);
+        }
         
     } catch (error) {
         console.error('Debug error:', error);
