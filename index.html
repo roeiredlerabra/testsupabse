@@ -150,18 +150,43 @@
             try {
                 const user = await auth0Client.getUser();
                 
-                // Initialize Supabase client with Auth0 token
-                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                    accessToken: async () => {
-                        try {
-                            const accessToken = await auth0Client.getTokenSilently();
-                            return accessToken;
-                        } catch (error) {
-                            console.error('Error getting Auth0 token:', error);
-                            return null;
-                        }
-                    }
-                });
+// Initialize Supabase client with Auth0 token (enhanced version)
+supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    accessToken: async () => {
+        try {
+            // Try access token first
+            const accessToken = await auth0Client.getTokenSilently();
+            
+            // Decode to check if it has role claim
+            const payload = JSON.parse(atob(accessToken.split('.')[1]));
+            console.log('Checking token for role claim:', payload.role);
+            
+            if (payload.role) {
+                console.log('Using access token with role claim');
+                return accessToken;
+            }
+            
+            // If no role in access token, try ID token
+            console.log('No role in access token, trying ID token...');
+            const idTokenClaims = await auth0Client.getIdTokenClaims();
+            if (idTokenClaims && idTokenClaims.__raw) {
+                // Decode ID token to check for role
+                const idPayload = JSON.parse(atob(idTokenClaims.__raw.split('.')[1]));
+                console.log('ID token claims:', idPayload);
+                if (idPayload.role) {
+                    console.log('Using ID token with role claim');
+                    return idTokenClaims.__raw;
+                }
+            }
+            
+            console.log('No role claim found, using access token anyway');
+            return accessToken;
+        } catch (error) {
+            console.error('Error getting token:', error);
+            return null;
+        }
+    }
+});
 
                 // Show user section
                 document.getElementById('loginSection').style.display = 'none';
