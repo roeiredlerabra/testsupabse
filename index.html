@@ -250,19 +250,39 @@
 async function debugJWT() {
     try {
         const token = await auth0Client.getTokenSilently();
-        console.log('Auth0 Access Token:', token);
+        console.log('Full token:', token);
         
-        // Decode the JWT to see claims (for debugging only)
+        // Decode JWT payload
         const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('JWT Payload:', payload);
+        console.log('JWT claims:', payload);
         
-        // Test Supabase connection
-        const { data, error } = await supabaseClient
+        // Check specifically for role claim
+        console.log('Role claim:', payload.role);
+        console.log('Email claim:', payload['https://myapp/email']);
+        
+        // Test Supabase auth status
+        const { data: authTest, error: authError } = await supabaseClient.auth.getUser();
+        console.log('Supabase auth test:', { authTest, authError });
+        
+        // Test a simple query to see what role Supabase assigns
+        const { data: testData, error: testError } = await supabaseClient
+            .rpc('current_user_id'); // This will show us the current role
+            
+        console.log('Supabase role test:', { testData, testError });
+        
+        // Test the cars query with detailed error info
+        const { data: cars, error: carsError, status, statusText } = await supabaseClient
             .from('cars')
             .select('*')
-            .limit(1);
+            .limit(5);
             
-        console.log('Supabase Response:', { data, error });
+        console.log('Cars query result:', { 
+            cars, 
+            carsError, 
+            status, 
+            statusText,
+            count: cars?.length 
+        });
         
     } catch (error) {
         console.error('Debug error:', error);
