@@ -1,1 +1,261 @@
-d
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth0 + Supabase Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .logout-btn {
+            background-color: #f44336;
+        }
+        .logout-btn:hover {
+            background-color: #da190b;
+        }
+        .user-info {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .cars-container {
+            margin-top: 30px;
+        }
+        .car-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: #f44336;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Auth0 + Supabase Demo</h1>
+        
+        <!-- Login Section -->
+        <div id="loginSection">
+            <h2>Please Log In</h2>
+            <button id="loginBtn">Login with Auth0</button>
+        </div>
+
+        <!-- User Section (hidden initially) -->
+        <div id="userSection" style="display: none;">
+            <div class="user-info">
+                <h3>Welcome!</h3>
+                <p><strong>Email:</strong> <span id="userEmail"></span></p>
+                <p><strong>Name:</strong> <span id="userName"></span></p>
+                <button id="logoutBtn" class="logout-btn">Logout</button>
+            </div>
+
+            <div class="cars-container">
+                <h3>Cars Data from Supabase</h3>
+                <button id="loadCarsBtn">Load Cars</button>
+                <div id="carsContainer"></div>
+            </div>
+        </div>
+
+        <div id="errorContainer"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // Configuration - Replace with your actual values
+        const AUTH0_DOMAIN = 'your-domain.auth0.com';
+        const AUTH0_CLIENT_ID = 'your-client-id';
+        const SUPABASE_URL = 'https://your-project.supabase.co';
+        const SUPABASE_ANON_KEY = 'your-anon-key';
+
+        let auth0Client;
+        let supabaseClient;
+
+        // Initialize Auth0
+        async function initAuth0() {
+            try {
+                auth0Client = await auth0.createAuth0Client({
+                    domain: AUTH0_DOMAIN,
+                    clientId: AUTH0_CLIENT_ID,
+                    authorizationParams: {
+                        redirect_uri: window.location.origin,
+                        audience: `https://${AUTH0_DOMAIN}/api/v2/`
+                    }
+                });
+
+                // Check if user is already authenticated
+                const isAuthenticated = await auth0Client.isAuthenticated();
+                
+                if (isAuthenticated) {
+                    await handleAuthentication();
+                } else {
+                    // Check if returning from Auth0
+                    const query = window.location.search;
+                    if (query.includes('code=') || query.includes('error=')) {
+                        await auth0Client.handleRedirectCallback();
+                        await handleAuthentication();
+                        // Clean up URL
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                }
+            } catch (error) {
+                showError('Failed to initialize Auth0: ' + error.message);
+            }
+        }
+
+        // Handle successful authentication
+        async function handleAuthentication() {
+            try {
+                const user = await auth0Client.getUser();
+                
+                // Initialize Supabase client with Auth0 token
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    accessToken: async () => {
+                        try {
+                            const accessToken = await auth0Client.getTokenSilently();
+                            return accessToken;
+                        } catch (error) {
+                            console.error('Error getting Auth0 token:', error);
+                            return null;
+                        }
+                    }
+                });
+
+                // Show user section
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('userSection').style.display = 'block';
+                
+                // Display user info
+                document.getElementById('userEmail').textContent = user.email || 'N/A';
+                document.getElementById('userName').textContent = user.name || 'N/A';
+                
+            } catch (error) {
+                showError('Authentication error: ' + error.message);
+            }
+        }
+
+        // Login function
+        async function login() {
+            try {
+                await auth0Client.loginWithRedirect();
+            } catch (error) {
+                showError('Login failed: ' + error.message);
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                await auth0Client.logout({
+                    logoutParams: {
+                        returnTo: window.location.origin
+                    }
+                });
+            } catch (error) {
+                showError('Logout failed: ' + error.message);
+            }
+        }
+
+        // Load cars data from Supabase
+        async function loadCars() {
+            const carsContainer = document.getElementById('carsContainer');
+            const loadCarsBtn = document.getElementById('loadCarsBtn');
+            
+            try {
+                loadCarsBtn.disabled = true;
+                carsContainer.innerHTML = '<div class="loading">Loading cars...</div>';
+
+                const { data: cars, error } = await supabaseClient
+                    .from('cars')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    throw error;
+                }
+
+                if (cars && cars.length > 0) {
+                    carsContainer.innerHTML = cars.map(car => `
+                        <div class="car-item">
+                            <h4>${car.make} ${car.model}</h4>
+                            <p><strong>Year:</strong> ${car.year}</p>
+                            <p><strong>Color:</strong> ${car.color}</p>
+                            <p><strong>Price:</strong> $${car.price?.toLocaleString() || 'N/A'}</p>
+                            <p><strong>Owner:</strong> ${car.owner_email}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    carsContainer.innerHTML = '<p>No cars found in the database.</p>';
+                }
+
+            } catch (error) {
+                showError('Failed to load cars: ' + error.message);
+                carsContainer.innerHTML = '<p class="error">Failed to load cars data.</p>';
+            } finally {
+                loadCarsBtn.disabled = false;
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+            setTimeout(() => {
+                errorContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('loginBtn').addEventListener('click', login);
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('loadCarsBtn').addEventListener('click', loadCars);
+            
+            // Initialize Auth0
+            initAuth0();
+        });
+    </script>
+</body>
+</html>
