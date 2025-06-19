@@ -1,0 +1,42 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "cars",
+    "policyname": "Allow authenticated users to view all cars",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cars",
+    "policyname": "Users can delete their own cars",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(owner_email = (auth.jwt() ->> 'https://myapp/email'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cars",
+    "policyname": "Users can insert cars",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(owner_email = (auth.jwt() ->> 'https://myapp/email'::text))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cars",
+    "policyname": "Users can update their own cars",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(owner_email = (auth.jwt() ->> 'https://myapp/email'::text))",
+    "with_check": null
+  }
+]
