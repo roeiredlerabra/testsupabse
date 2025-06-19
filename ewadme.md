@@ -1,5 +1,5 @@
 ## סיכום המערכת שבנינו
-
+https://testsupabase1.netlify.app/
 בנינו מערכת אימות מלאה שמשלבת **Auth0** עם **Supabase** באמצעות Third-Party Authentication. הנה מה שהשגנו:
 
 ### 🔧 **התצורה הטכנית**
